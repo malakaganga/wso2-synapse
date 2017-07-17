@@ -26,6 +26,7 @@ import com.sun.phobos.script.javascript.RhinoScriptEngineFactory;
 import com.sun.script.groovy.GroovyScriptEngineFactory;
 import com.sun.script.jruby.JRubyScriptEngineFactory;
 import com.sun.script.jython.JythonScriptEngineFactory;
+import jdk.nashorn.api.scripting.NashornScriptEngineFactory;
 import org.apache.axiom.om.OMElement;
 import org.apache.axiom.om.OMText;
 import org.apache.bsf.xml.XMLHelper;
@@ -82,6 +83,11 @@ public class ScriptMediator extends AbstractMediator {
      * Name of the java script language
      */
     private static final String JAVA_SCRIPT = "js";
+
+    /**
+    * The used java version
+    */
+    private static String JAVA_VERSION = System.getProperty("java.version");
 
     /**
      * The registry entry key for a script loaded from the registry
@@ -531,16 +537,42 @@ public class ScriptMediator extends AbstractMediator {
         return sew;
     }
 
+    private ScriptExecutorType getJavaScriptExecutorType() {
+        ScriptExecutorType javaScriptExecutorType = ScriptExecutorType.RHINO;
+        if (JAVA_VERSION.startsWith("1.7") || JAVA_VERSION.startsWith("1.6")) {
+            log.debug("Java Script engine define to RHINO");
+        } else {
+            javaScriptExecutorType = ScriptExecutorType.NASHORN;
+            log.debug("Java Script engine define to "+ javaScriptExecutorType);
+        }
+
+        return javaScriptExecutorType;
+    }
+
     protected void initScriptEngine() {
         if (log.isDebugEnabled()) {
             log.debug("Initializing script mediator for language : " + language);
         }
 
+
         engineManager = new ScriptEngineManager();
-        engineManager.registerEngineExtension("js", new RhinoScriptEngineFactory());
+
+        switch (getJavaScriptExecutorType()) {
+            case NASHORN:
+                engineManager.registerEngineExtension("js", new NashornScriptEngineFactory());
+                engineManager.registerEngineExtension("jsEngine", new NashornScriptEngineFactory());
+                break;
+            case RHINO:
+                engineManager.registerEngineExtension("js", new RhinoScriptEngineFactory());
+                engineManager.registerEngineExtension("jsEngine", new RhinoScriptEngineFactory());
+                break;
+            default:
+                engineManager.registerEngineExtension("js", new RhinoScriptEngineFactory());
+                engineManager.registerEngineExtension("jsEngine", new RhinoScriptEngineFactory());
+                break;
+        }
         engineManager.registerEngineExtension("groovy", new GroovyScriptEngineFactory());
         engineManager.registerEngineExtension("rb", new JRubyScriptEngineFactory());
-        engineManager.registerEngineExtension("jsEngine", new RhinoScriptEngineFactory());
         engineManager.registerEngineExtension("py", new JythonScriptEngineFactory());
         this.scriptEngine = engineManager.getEngineByExtension(language);
 
@@ -555,13 +587,15 @@ public class ScriptMediator extends AbstractMediator {
         if (scriptEngine == null) {
             handleException("No script engine found for language: " + language);
         }
-        //Invoking a custom Helper class since there is an api change in rhino17 for js
-        if (language.equalsIgnoreCase(JAVA_SCRIPT)) {
-            xmlHelper = new JavaScriptXmlHelper();
-        } else {
-            xmlHelper = XMLHelper.getArgHelper(scriptEngine);
-        }
 
+        if (!getJavaScriptExecutorType().toString().equals("NASHORN")) {
+            //Invoking a custom Helper class since there is an api change in rhino17 for js
+            if (language.equalsIgnoreCase(JAVA_SCRIPT)) {
+                xmlHelper = new JavaScriptXmlHelper();
+            } else {
+                xmlHelper = XMLHelper.getArgHelper(scriptEngine);
+            }
+        }
 
         this.multiThreadedEngine = scriptEngine.getFactory().getParameter("THREADING") != null;
         log.debug("Script mediator for language : " + language +
