@@ -19,6 +19,7 @@
 
 package org.apache.synapse.mediators.bsf;
 
+import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import org.apache.axiom.om.OMAttribute;
 import org.apache.axiom.om.OMElement;
 import org.apache.axiom.om.OMException;
@@ -806,6 +807,15 @@ public class ScriptMessageContext implements MessageContext {
                 obj instanceof BigDecimal ||
                 obj instanceof Boolean) {
             out.write(obj.toString().getBytes());
+        } else if (obj instanceof ScriptObjectMirror) {
+            ScriptObjectMirror json = null;
+            try {
+                json = (ScriptObjectMirror) scriptEngine.eval("JSON");
+                String jsonString = (String)json.callMember("stringify", obj);
+                out.write(jsonString.getBytes());
+            } catch (ScriptException e) {
+                e.printStackTrace();
+            }
         } else {
             out.write('{');
             out.write('}');
