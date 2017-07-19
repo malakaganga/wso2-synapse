@@ -24,6 +24,7 @@ import org.apache.axiom.om.OMAttribute;
 import org.apache.axiom.om.OMElement;
 import org.apache.axiom.om.OMException;
 import org.apache.axiom.om.OMNode;
+import org.apache.axiom.om.util.AXIOMUtil;
 import org.apache.axiom.soap.SOAPBody;
 import org.apache.axiom.soap.SOAPEnvelope;
 import org.apache.axiom.soap.SOAPFactory;
@@ -58,6 +59,7 @@ import java.util.*;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptException;
+import javax.xml.stream.XMLStreamException;
 import java.io.*;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -99,7 +101,18 @@ public class ScriptMessageContext implements MessageContext {
      * the XML representation of SOAP Body payload
      */
     public Object getPayloadXML() throws ScriptException {
-        return xmlHelper.toScriptXML(mc.getEnvelope().getBody().getFirstElement());
+        SOAPEnvelope envelope = mc.getEnvelope();
+        SOAPBody soapBody = envelope.getBody();
+        OMElement omElement = soapBody.getFirstElement();
+
+        Object obj = null;
+        try {
+            obj = omElement.toStringWithConsume();
+        } catch (XMLStreamException e) {
+            e.printStackTrace();
+        }
+        return obj;
+        //return xmlHelper.toScriptXML(mc.getEnvelope().getBody().getFirstElement());
     }
 
     /**
@@ -113,7 +126,20 @@ public class ScriptMessageContext implements MessageContext {
     public void setPayloadXML(Object payload) throws OMException, ScriptException {
         SOAPBody body = mc.getEnvelope().getBody();
         OMElement firstChild = body.getFirstElement();
-        OMElement omElement = xmlHelper.toOMElement(payload);
+        OMElement omElement;
+        if (payload instanceof String) {
+            try {
+                String xmlSt = payload.toString();
+                omElement = AXIOMUtil.stringToOM(xmlSt);
+
+            } catch (XMLStreamException e) {
+                ScriptException scriptException = new ScriptException("Failed to create OMElement with provide payload");
+                scriptException.initCause(e);
+                throw scriptException;
+            }
+        } else {
+            omElement = xmlHelper.toOMElement(payload);
+        }
         if (firstChild == null) {
             body.addChild(omElement);
         } else {
