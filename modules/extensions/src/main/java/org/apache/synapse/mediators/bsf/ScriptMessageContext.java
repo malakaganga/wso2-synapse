@@ -105,11 +105,13 @@ public class ScriptMessageContext implements MessageContext {
         SOAPBody soapBody = envelope.getBody();
         OMElement omElement = soapBody.getFirstElement();
 
-        Object obj = null;
+        Object obj;
         try {
             obj = omElement.toStringWithConsume();
         } catch (XMLStreamException e) {
-            e.printStackTrace();
+            ScriptException scriptException = new ScriptException("Failed to convert OMElement to a string");
+            scriptException.initCause(e);
+            throw scriptException;
         }
         return obj;
         //return xmlHelper.toScriptXML(mc.getEnvelope().getBody().getFirstElement());
@@ -133,7 +135,8 @@ public class ScriptMessageContext implements MessageContext {
                 omElement = AXIOMUtil.stringToOM(xmlSt);
 
             } catch (XMLStreamException e) {
-                ScriptException scriptException = new ScriptException("Failed to create OMElement with provide payload");
+                ScriptException scriptException = new ScriptException("Failed to create OMElement with provided "
+                       + "payload");
                 scriptException.initCause(e);
                 throw scriptException;
             }
@@ -736,7 +739,7 @@ public class ScriptMessageContext implements MessageContext {
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
                 serializeJSON_(jsonPayload, out);
                 json = out.toByteArray();
-            } catch (IOException e) {
+            } catch (IOException | ScriptException e) {
                 logger.error("#setPayloadJSON. Could not retrieve bytes from JSON object. Error>>> "
                         + e.getLocalizedMessage());
             }
@@ -752,7 +755,7 @@ public class ScriptMessageContext implements MessageContext {
         setJsonObject(mc, jsonObject);
     }
 
-    private void serializeJSON_(Object obj, OutputStream out) throws IOException {
+    private void serializeJSON_(Object obj, OutputStream out) throws IOException, ScriptException {
         if (out == null) {
             logger.warn("#serializeJSON_. Did not serialize JSON object. Object: " + obj + "  Stream: " + out);
             return;
@@ -835,13 +838,9 @@ public class ScriptMessageContext implements MessageContext {
             out.write(obj.toString().getBytes());
         } else if (obj instanceof ScriptObjectMirror) {
             ScriptObjectMirror json = null;
-            try {
-                json = (ScriptObjectMirror) scriptEngine.eval("JSON");
-                String jsonString = (String)json.callMember("stringify", obj);
-                out.write(jsonString.getBytes());
-            } catch (ScriptException e) {
-                e.printStackTrace();
-            }
+            json = (ScriptObjectMirror) scriptEngine.eval("JSON");
+            String jsonString = (String) json.callMember("stringify", obj);
+            out.write(jsonString.getBytes());
         } else {
             out.write('{');
             out.write('}');
