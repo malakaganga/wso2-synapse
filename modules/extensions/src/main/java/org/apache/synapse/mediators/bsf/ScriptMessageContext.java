@@ -98,7 +98,13 @@ public class ScriptMessageContext implements MessageContext {
      * the XML representation of SOAP Body payload
      */
     public Object getPayloadXML() throws ScriptException {
-        return xmlHelper.toScriptXML(mc.getEnvelope().getBody().getFirstElement());
+        SOAPEnvelope envelope = mc.getEnvelope();
+        SOAPBody body = envelope.getBody();
+        OMElement element = body.getFirstElement();
+        Object obj = xmlHelper.toScriptXML(element);
+        System.out.println(" "+ obj);
+        return obj;
+        //return xmlHelper.toScriptXML(mc.getEnvelope().getBody().getFirstElement());
     }
 
     /**
@@ -287,7 +293,10 @@ public class ScriptMessageContext implements MessageContext {
      * the XML representation of SOAP envelope
      */
     public Object getEnvelopeXML() throws ScriptException {
-        return xmlHelper.toScriptXML(mc.getEnvelope());
+        SOAPEnvelope envelope = mc.getEnvelope();
+        Object obj = xmlHelper.toScriptXML(envelope);
+        System.out.println(" "+obj);
+        return obj;
     }
 
     // helpers to set EPRs from a script string
