@@ -292,7 +292,20 @@ public class ScriptMessageContext implements MessageContext {
         if (header == null) {
             header = factory.createSOAPHeader(envelope);
         }
-        OMElement element = xmlHelper.toOMElement(content);
+        OMElement element;
+        if (content instanceof String) {
+            try {
+                String xmlSt = content.toString();
+                element = AXIOMUtil.stringToOM(xmlSt);
+            } catch (XMLStreamException e) {
+                ScriptException scriptException = new ScriptException("Failed to create OMElement with provided " +
+                        "content");
+                scriptException.initCause(e);
+                throw scriptException;
+            }
+        } else {
+            element = xmlHelper.toOMElement(content);
+        }
         // We can't add the element directly to the SOAPHeader. Instead, we need to copy the
         // information over to a SOAPHeaderBlock.
         SOAPHeaderBlock headerBlock = header.addHeaderBlock(element.getLocalName(),
@@ -317,7 +330,9 @@ public class ScriptMessageContext implements MessageContext {
      * the XML representation of SOAP envelope
      */
     public Object getEnvelopeXML() throws ScriptException {
-        return xmlHelper.toScriptXML(mc.getEnvelope());
+        SOAPEnvelope envelope = mc.getEnvelope();
+        String xmlBasedEnvelope = mc.toString();
+        return xmlBasedEnvelope;
     }
 
     // helpers to set EPRs from a script string
