@@ -295,8 +295,8 @@ public class ScriptMessageContext implements MessageContext {
         OMElement element;
         if (content instanceof String) {
             try {
-                String xmlSt = content.toString();
-                element = AXIOMUtil.stringToOM(xmlSt);
+                String xmlContent = content.toString();
+                element = AXIOMUtil.stringToOM(xmlContent);
             } catch (XMLStreamException e) {
                 ScriptException scriptException = new ScriptException("Failed to create OMElement with provided " +
                         "content");
@@ -390,11 +390,12 @@ public class ScriptMessageContext implements MessageContext {
     }
 
     public void setProperty(String key, Object value) {
-        if (value instanceof XMLObject) {
+        if (value instanceof String) {
             OMElement omElement = null;
             try {
-                omElement = xmlHelper.toOMElement(value);
-            } catch (ScriptException e) {
+                String xmlValue = value.toString();
+                omElement = AXIOMUtil.stringToOM(xmlValue);
+            } catch (XMLStreamException e) {
                 mc.setProperty(key, value);
             }
             if (omElement != null) {
