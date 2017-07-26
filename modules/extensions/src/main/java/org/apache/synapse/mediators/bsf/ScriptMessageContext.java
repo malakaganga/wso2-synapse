@@ -19,6 +19,7 @@
 
 package org.apache.synapse.mediators.bsf;
 
+import com.sun.org.apache.xerces.internal.parsers.DOMParser;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
 import org.apache.axiom.om.OMAttribute;
 import org.apache.axiom.om.OMElement;
@@ -55,6 +56,10 @@ import org.mozilla.javascript.Wrapper;
 import org.mozilla.javascript.xml.XMLObject;
 import org.apache.synapse.config.xml.XMLConfigConstants;
 import org.apache.http.protocol.HTTP;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+
 import java.util.*;
 
 import javax.script.ScriptEngine;
@@ -104,7 +109,6 @@ public class ScriptMessageContext implements MessageContext {
         SOAPEnvelope envelope = mc.getEnvelope();
         SOAPBody soapBody = envelope.getBody();
         OMElement omElement = soapBody.getFirstElement();
-
         Object obj;
         try {
             obj = omElement.toStringWithConsume();
@@ -279,6 +283,29 @@ public class ScriptMessageContext implements MessageContext {
     }
 
     /**
+     * Returns the parsed xml document.
+     * @param text xml string or document needed to be parser
+     * @return parsed document
+     */
+    public Document parseXml(String text) throws ScriptException {
+        InputSource sax = new InputSource(new java.io.StringReader(text));
+        DOMParser parser = new DOMParser();
+        Document doc;
+        try {
+            parser.parse(sax);
+            doc = parser.getDocument();
+            doc.getDocumentElement();
+            doc.getDocumentElement().normalize();
+        } catch (SAXException | IOException e) {
+            ScriptException scriptException = new ScriptException("Failed to parse provided xml");
+            scriptException.initCause(e);
+            throw scriptException;
+        }
+
+        return doc;
+    }
+
+    /**
      * Add a new SOAP header to the message.
      * 
      * @param mustUnderstand the value for the <code>soapenv:mustUnderstand</code> attribute
@@ -395,11 +422,9 @@ public class ScriptMessageContext implements MessageContext {
             try {
                 String xmlValue = value.toString();
                 omElement = AXIOMUtil.stringToOM(xmlValue);
-            } catch (XMLStreamException e) {
-                mc.setProperty(key, value);
-            }
-            if (omElement != null) {
                 mc.setProperty(key, omElement);
+            } catch (XMLStreamException | OMException e) {
+                mc.setProperty(key, value);
             }
         } else {
             mc.setProperty(key, value);
