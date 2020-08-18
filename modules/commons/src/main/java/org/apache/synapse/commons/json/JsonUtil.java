@@ -18,9 +18,15 @@
 
 package org.apache.synapse.commons.json;
 
+import java.io.BufferedReader;
+import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
+
+import org.apache.axiom.om.OMOutputFormat;
 import org.apache.axiom.om.impl.llom.OMElementImpl;
+import org.apache.axis2.builder.BuilderUtil;
 import org.apache.axis2.transport.http.HTTPConstants;
 import org.apache.synapse.commons.SynapseCommonsException;
 import org.apache.synapse.commons.staxon.core.json.JsonXMLConfig;
@@ -1165,7 +1171,37 @@ public final class JsonUtil {
             if (json.markSupported()) {
                 json.reset();
             }
-            IOUtils.copy(json, out); // Write the JSON stream
+            String expectedCharSetEncoding = (String) messageContext
+                    .getProperty(org.apache.axis2.Constants.Configuration.CHARACTER_SET_ENCODING);
+            String contentType =
+                    (String) messageContext.getProperty(org.apache.axis2.Constants.Configuration.CONTENT_TYPE);
+            String inputCharSetEncoding = BuilderUtil.getCharSetEncoding(contentType);
+
+            logger.info("Original Character Encoding : " + inputCharSetEncoding);
+            logger.info("Expected Character Encoding : " + expectedCharSetEncoding);
+
+            if (expectedCharSetEncoding == null
+                    || ((expectedCharSetEncoding == inputCharSetEncoding) && expectedCharSetEncoding == "UTF-8")) {
+                IOUtils.copy(json, out); // Write the JSON stream
+            } else {
+                byte[] buffer = new byte[4096];
+                while (json.read(buffer) >= 0) {
+                }
+
+                byte[] expectedBuffer;
+                if (inputCharSetEncoding == null || inputCharSetEncoding == "UTF-8") {
+                    expectedBuffer = new String(buffer).getBytes(expectedCharSetEncoding);
+                } else {
+                    expectedBuffer =
+                            new String(new String(buffer).getBytes(inputCharSetEncoding), expectedCharSetEncoding)
+                                    .getBytes();
+                }
+
+                logger.info("Transformed " + new String(expectedBuffer));
+                out.write(expectedBuffer);
+            }
+
+
             if (messageContext.getProperty(PRESERVE_JSON_STREAM) != null) {
                 if (json.markSupported()) {
                     json.reset();
